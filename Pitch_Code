@@ -3,12 +3,12 @@
 #include "C:\Users\vishn\Downloads\Object-Detection-Avoidance-PIXHAWK-main\Object-Detection-Avoidance-PIXHAWK-main\libraries\mavlink\common\mavlink.h" // Adjust the path if needed
 #define MAX_DISTANCE 70
 
-// GPIO pins initialization 
+ 
 SoftwareSerial mySerial(10, 11); // RX, TX
 NewPing sonar_B(5, 6, MAX_DISTANCE); // Assign unique pins for back sensor
 NewPing sonar_F(7, 8, MAX_DISTANCE); // Assign unique pins for front sensor
 
-// Initialize variables
+
 unsigned long HeartbeatTime = 0;
 int OUTPUT_PITCH = 0;
 int TRIG_PITCH = 0;
@@ -20,7 +20,7 @@ int PITCH_FRONT = 0;
 void setup() {
   Serial.begin(9600); // Monitor output
   mySerial.begin(57600); // Communication with Pixhawk
-  Serial.println("Setup complete, starting loop...");
+  Serial.println("Vishnu Setup complete, starting loop...");
 }
 
 void loop() {
@@ -31,7 +31,7 @@ void loop() {
     Serial.println("Heartbeat sent to Pixhawk.");
   }
 
-  // Sensor readings
+  
   FRONT_SENSOR = sonar_F.ping_cm();
   BACK_SENSOR = sonar_B.ping_cm();
   TRIG_PITCH = FRONT_SENSOR + BACK_SENSOR;
@@ -46,7 +46,7 @@ void loop() {
   OUTPUT_DATA();
 }
 
-// Calculation for pitch
+
 void CALCULATE_PITCH() {
   if (BACK_SENSOR != 0 && BACK_SENSOR < MAX_DISTANCE) {
     PITCH_FRONT = 1500 - 30 - ((70 - BACK_SENSOR) * 6);
@@ -64,7 +64,7 @@ void CALCULATE_PITCH() {
   }
 }
 
-// Output data to Mavlink
+
 void OUTPUT_DATA() {
   CALCULATE_PITCH();
   SEND_DATA(OUTPUT_PITCH);
@@ -82,7 +82,7 @@ void PIX_HEART_BEAT() {
   mySerial.write(buf, len);
 }
 
-// Send data to Pixhawk
+
 void SEND_DATA(int P) {
   mavlink_message_t msg;
   uint8_t buf[MAVLINK_MAX_PACKET_LEN];
