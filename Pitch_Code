@@ -1,0 +1,102 @@
+#include <NewPing.h> // For the ultrasonic sensor
+#include <SoftwareSerial.h> // Facilitates communication b/w Arduino and Pixhawk
+#include "C:\Users\vishn\Downloads\Object-Detection-Avoidance-PIXHAWK-main\Object-Detection-Avoidance-PIXHAWK-main\libraries\mavlink\common\mavlink.h" // Adjust the path if needed
+#define MAX_DISTANCE 70
+
+// GPIO pins initialization 
+SoftwareSerial mySerial(10, 11); // RX, TX
+NewPing sonar_B(5, 6, MAX_DISTANCE); // Assign unique pins for back sensor
+NewPing sonar_F(7, 8, MAX_DISTANCE); // Assign unique pins for front sensor
+
+// Initialize variables
+unsigned long HeartbeatTime = 0;
+int OUTPUT_PITCH = 0;
+int TRIG_PITCH = 0;
+int FRONT_SENSOR = 0;
+int BACK_SENSOR = 0;
+int PITCH_BACK = 0;
+int PITCH_FRONT = 0;
+
+void setup() {
+  Serial.begin(9600); // Monitor output
+  mySerial.begin(57600); // Communication with Pixhawk
+  Serial.println("Setup complete, starting loop...");
+}
+
+void loop() {
+  // Heartbeat
+  if ((millis() - HeartbeatTime) > 1000) {
+    HeartbeatTime = millis();
+    PIX_HEART_BEAT();
+    Serial.println("Heartbeat sent to Pixhawk.");
+  }
+
+  // Sensor readings
+  FRONT_SENSOR = sonar_F.ping_cm();
+  BACK_SENSOR = sonar_B.ping_cm();
+  TRIG_PITCH = FRONT_SENSOR + BACK_SENSOR;
+
+  Serial.print("Front Sensor: ");
+  Serial.print(FRONT_SENSOR);
+  Serial.print(" cm, Back Sensor: ");
+  Serial.print(BACK_SENSOR);
+  Serial.println(" cm");
+
+  // Calculate and send data
+  OUTPUT_DATA();
+}
+
+// Calculation for pitch
+void CALCULATE_PITCH() {
+  if (BACK_SENSOR != 0 && BACK_SENSOR < MAX_DISTANCE) {
+    PITCH_FRONT = 1500 - 30 - ((70 - BACK_SENSOR) * 6);
+    OUTPUT_PITCH = PITCH_FRONT;
+    Serial.print("Calculated Pitch Front: ");
+    Serial.println(PITCH_FRONT);
+  } else if (FRONT_SENSOR != 0 && FRONT_SENSOR < MAX_DISTANCE) {
+    PITCH_BACK = 1500 + 30 + ((70 - FRONT_SENSOR) * 6);
+    OUTPUT_PITCH = PITCH_BACK;
+    Serial.print("Calculated Pitch Back: ");
+    Serial.println(PITCH_BACK);
+  } else {
+    OUTPUT_PITCH = 1500;
+    Serial.println("No obstacles detected, pitch neutral.");
+  }
+}
+
+// Output data to Mavlink
+void OUTPUT_DATA() {
+  CALCULATE_PITCH();
+  SEND_DATA(OUTPUT_PITCH);
+}
+
+// Mavlink heartbeat
+void PIX_HEART_BEAT() {
+  mavlink_message_t msg;
+  uint8_t buf[MAVLINK_MAX_PACKET_LEN];
+  uint16_t len;
+
+  mavlink_msg_heartbeat_pack(255, 0, &msg, MAV_TYPE_QUADROTOR, MAV_AUTOPILOT_GENERIC, 0, 1, 0);
+  len = mavlink_msg_to_send_buffer(buf, &msg);
+
+  mySerial.write(buf, len);
+}
+
+// Send data to Pixhawk
+void SEND_DATA(int P) {
+  mavlink_message_t msg;
+  uint8_t buf[MAVLINK_MAX_PACKET_LEN];
+  uint16_t len;
+
+  if (TRIG_PITCH != 0) {
+    mavlink_msg_rc_channels_override_pack(255, 0, &msg, 1, 0, 0, P, 0, 0, 0, 0, 0, 0);
+  } else {
+    mavlink_msg_rc_channels_override_pack(255, 0, &msg, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+  }
+
+  len = mavlink_msg_to_send_buffer(buf, &msg);
+  mySerial.write(buf, len);
+
+  Serial.print("Data sent to Pixhawk: ");
+  Serial.println(P);
+}
